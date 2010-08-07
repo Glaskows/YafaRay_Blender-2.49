@@ -438,6 +438,28 @@ class yafrayRender:
 			yi.paramsSetBool("finalGather", renderer["finalGather"])
 			yi.paramsSetInt("bounces", renderer["bounces"])
 
+		elif "Photon Mapping with Irradiance Cache" == light_type:
+			# photon integrator with IC
+			yi.paramsSetString("type", "photonIC")
+			yi.paramsSetInt("fg_samples", renderer["fg_samples"])
+			yi.paramsSetInt("photons", renderer["photons"])
+			yi.paramsSetInt("cPhotons", renderer["cPhotons"])
+			yi.paramsSetFloat("diffuseRadius", renderer["diffuseRadius"])
+			yi.paramsSetFloat("causticRadius", renderer["causticRadius"])
+			yi.paramsSetInt("search", renderer["search"])
+			yi.paramsSetBool("show_map", renderer["show_map"])
+			yi.paramsSetInt("fg_bounces", renderer["fg_bounces"])
+			yi.paramsSetInt("caustic_mix", renderer["caustic_mix"])
+			yi.paramsSetBool("finalGather", renderer["finalGather"])
+			yi.paramsSetInt("bounces", renderer["bounces"])
+			yi.paramsSetInt("IC_M_Divs", renderer["IC_M_Divs"])
+			yi.paramsSetFloat("IC_Kappa", renderer["IC_Kappa"])
+			yi.paramsSetBool("do_IC", renderer["do_IC"])
+			
+			print renderer["IC_M_Divs"]
+			print renderer["IC_Kappa"]
+			print renderer["do_IC"]
+
 		elif "Pathtracing" == light_type:
 			yi.paramsSetString("type", "pathtracing");
 			yi.paramsSetInt("path_samples", renderer["path_samples"])

@@ -1391,7 +1391,7 @@ class clTabRender:
 		self.connector = []
 		# class-specific types
 		self.AATypes = ["box", "gauss", "lanczos", "mitchell"]
-		self.LightingTypes = ["Direct lighting", "Photon mapping", "Pathtracing", "Bidirectional (EXPERIMENTAL)"]
+		self.LightingTypes = ["Direct lighting", "Photon mapping", "Pathtracing", "Bidirectional (EXPERIMENTAL)", "Photon Mapping with Irradiance Cache"]
 		self.LightingTypes += ["Debug"]
 		self.DebugTypes = ["N", "dPdU", "dPdV", "NU", "NV", "dSdU", "dSdV"]
 		self.CausticTypes = ["None", "Path", "Photon", "Path+Photon"]
@@ -1469,6 +1469,10 @@ class clTabRender:
 		self.guiRenderPhFGSamples = Draw.Create(0) # numberbox
 		self.guiRenderPhFGBounces = Draw.Create(0) # numberbox
 		self.guiRenderPhShowMap = Draw.Create(0) # toggle
+
+		self.guiRenderPhICDivs = Draw.Create(0) # numberbox
+		self.guiRenderPhICKappa = Draw.Create(2.5) # numberbox
+		self.guiRenderPhUseIC = Draw.Create(0) # toggle
 
 		self.guiRenderDebugType = Draw.Create(0) # menu
 		self.guiRenderDebugMaps = Draw.Create(0) #toggle
@@ -1597,6 +1601,9 @@ class clTabRender:
 			(self.guiRenderPhFGBounces, "fg_bounces", 3, self.Renderer),
 			(self.guiRenderPhFGSamples, "fg_samples", 16, self.Renderer),
 			(self.guiRenderPhShowMap, "show_map", 0, self.Renderer),
+			(self.guiRenderPhICDivs, "IC_M_Divs", 10, self.Renderer),
+			(self.guiRenderPhICKappa, "IC_Kappa", 2.50, self.Renderer),
+			(self.guiRenderPhUseIC, "do_IC", 0, self.Renderer),
 			# debug integrator
 			(self.guiRenderDebugType, "debugType", self.DebugTypes, self.Renderer),
 			(self.guiRenderDebugMaps, "show_perturbed_normals", 0, self.Renderer)]
@@ -1853,6 +1860,58 @@ class clTabRender:
 				height, 150, guiWidgetHeight, self.guiRenderPhFGSamples.val, 1, 4096, "Number of samples for final gathering")
 			self.guiRenderPhShowMap = Draw.Toggle("Show map", self.evEdit, 180,
 				height, 150, guiWidgetHeight, self.guiRenderPhShowMap.val, "Directly show radiance map (disables final gathering step)")
+
+		elif self.LightingTypes[self.guiRenderLightType.val] == "Photon Mapping with Irradiance Cache":
+			height = drawSepLineText(10, height, 320, "Photon settings")
+
+			self.guiRenderGIDepth = Draw.Number("Depth", self.evEdit, 10, height,
+				150, guiWidgetHeight, self.guiRenderGIDepth.val, 0, 50, "Maximum number of scattering events for photons")
+			#self.guiRenderUseBG = Draw.Toggle("Use background", self.evEdit, 180, height, 150,
+			#	guiWidgetHeight, self.guiRenderUseBG.val, "Include background when calculating indirect light")
+
+			height += guiHeightOffset 
+			self.guiRenderPhPhotons = Draw.Number("Diff. Photons", self.evEdit, 10,
+				height, 150, guiWidgetHeight, self.guiRenderPhPhotons.val, 1, 100000000, "Number of diffuse photons to be shot")
+			self.guiRenderPhCausPhotons = Draw.Number("Caus. Photons", self.evEdit, 180,
+				height, 150, guiWidgetHeight, self.guiRenderPhCausPhotons.val, 1, 100000000, "Number of caustic photons to be shot")
+				
+			height += guiHeightOffset
+			self.guiRenderPhDiffuseRad = Draw.Number("Diff. radius", self.evEdit, 10,
+				height, 150, guiWidgetHeight, self.guiRenderPhDiffuseRad.val, 0.001, 100.0, "Radius to search for diffuse photons",
+				dummyfunc, 1.0, 4.0)
+			self.guiRenderPhCausticRad = Draw.Number("Caus. radius", self.evEdit, 180,
+				height, 150, guiWidgetHeight, self.guiRenderPhCausticRad.val, 0.0001, 100.0, "Radius to search for caustic photons",
+				dummyfunc, 1.0, 4.0)
+
+			height += guiHeightOffset
+			self.guiRenderPhSearch = Draw.Number("Search", self.evEdit, 10,
+				height, 150, guiWidgetHeight, self.guiRenderPhSearch.val, 1, 10000, "Maximum number of diffuse photons to be filtered")
+			self.guiRenderPhCaustixMix = Draw.Number("Caustic Mix", self.evEdit, 180,
+				height, 150, guiWidgetHeight, self.guiRenderPhCaustixMix.val, 1, 10000, "Max. number of photons to mix (caustics blur)")
+
+			height += guiHeightOffset
+			self.guiRenderPhFG = Draw.Toggle("Final gather", self.evEdit, 10,
+				height, 150, guiWidgetHeight, self.guiRenderPhFG.val, "Use final gathering (recommended)")
+			self.guiRenderPhFGBounces = Draw.Number("FG bounces", self.evEdit, 180,
+				height, 150, guiWidgetHeight, self.guiRenderPhFGBounces.val, 1, 20, "Allow gather rays to extend to paths of this length")
+
+			height += guiHeightOffset
+			self.guiRenderPhFGSamples = Draw.Number("FG samples", self.evEdit, 10,
+				height, 150, guiWidgetHeight, self.guiRenderPhFGSamples.val, 1, 4096, "Number of samples for final gathering")
+			self.guiRenderPhShowMap = Draw.Toggle("Show map", self.evEdit, 180,
+				height, 150, guiWidgetHeight, self.guiRenderPhShowMap.val, "Directly show radiance map (disables final gathering step)")
+
+			height += guiHeightOffset
+			self.guiRenderPhUseIC = Draw.Toggle("Use IrrCache", self.evEdit, 10,
+				height, 150, guiWidgetHeight, self.guiRenderPhUseIC.val, "Enable the use of irradiance cache")
+			
+			if self.guiRenderPhUseIC.val:
+				height += guiHeightOffset
+				self.guiRenderPhICDivs = Draw.Number("Max Samples", self.evEdit, 10,
+					height, 150, guiWidgetHeight, self.guiRenderPhICDivs.val, 1, 100, "Maximum number of samples per IC record")
+				self.guiRenderPhICKappa = Draw.Number("Accuracy", self.evEdit, 180,
+					height, 150, guiWidgetHeight, self.guiRenderPhICKappa.val, 0.0001, 100.0, "The higher the value the smaller the IC record radius",
+					dummyfunc, 1.0, 4.0)
 
 		elif self.LightingTypes[self.guiRenderLightType.val] == "Debug":
 
